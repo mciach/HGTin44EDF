@@ -43,17 +43,17 @@ BASH command using a supplied Python script `standardize_proteins.py`:
 ```
 python3 standardize_proteins.py masked_proteins.fa standardized_proteins.fa
 ```
-*Note: The resulting file standardized_proteins.fa is now the main FASTA file that will be screened for HGT.*
+*Note: The resulting file `standardized_proteins.fa` is now the main FASTA file that will be screened for HGT.*
 
 # Data processing 
 ## 1. Discarding ancestrally fungal proteins and major contaminants (workflow steps 2 and 3):
-1. Create a custom BLASTp database `target_fungi` with target proteins.
+1. Create a custom BLASTp database `target_fungi` with target proteins.  
 BASH command using ncbi blast+:
 ```
     makeblastdb -in ../standardized_proteins.fa -dbtype prot -out target_fungi -parse_seqids -taxid_map ../acc2taxid.txt
 ```
 
-2. All-vs-all BLASTp to asses the taxonomic distribution of the target proteins across the target fungi. 
+2. All-vs-all BLASTp to asses the taxonomic distribution of the target proteins across the target fungi.  
 BASH command using ncbi blast+:
 ```
 blastp -db target_fungi -query standardized_proteins.fa -out initial_blast_results -evalue 0.00001 -outfmt "6 qaccver saccver staxid" -num_threads 60 -qcov_hsp_perc 50
@@ -63,15 +63,17 @@ As a consequence, BLASTing against smaller data bases always yields smaller E-va
 To take this fact into account, in this step we make a rough adjustment of our e-value threshold and set it to 0.00001. 
 This is mostly optional - if you use a higher e-value, you'll increase the sensitivity, but decrease the specificity of this BLASTp search.*
 
-3. Parse the BLASTp results. 
-Select proteins with homology confined to a single fungal family (using the org2taxid.tsv table). 
-Discard proteins on contigs without any homology to any other fungal proteome.  
-Save the selected proteins in FASTA format in the file `global_blast_query.fa.`
-Use the supplied Jupyter Notebook: "1. Discarding ancestral sequences and major contaminants.ipynb" 
+3. Parse the BLASTp results.  
+Use the supplied Jupyter Notebook: "1. Discarding ancestral sequences and major contaminants.ipynb".   
+Implemented steps:  
+    1. Select proteins with homology confined to a single fungal family (using the org2taxid.tsv table). 
+    2. Discard proteins on contigs without any homology to any other fungal proteome.  
+    3. Save the selected proteins in FASTA format in the file `global_blast_query.fa.`
+
 
 ## 2. Performing a BLASTp of the selected target proteins against the NR data base and filtering the results ("global BLASTp"; workflow step 4, 5)
 1. Run a BLASTp of the global_blast_query.fa against a local copy of the NR data base.   
-Set a query cover filter so that we don't get spurious homologies caused by small highly conserved regions (this is very prevalent in these kinds of studies, HGT is often connected with gene fusion).  
+Set a query cover filter so that we don't get spurious homologies caused by small highly conserved regions (this is very prevalent in these kinds of studies, because HGT is often associated with gene fusion).  
 Example command (it is recommended, however, to parallelize the computations, see e.g. [this link](https://bioinformaticsworkbook.org/dataAnalysis/blast/running-blast-jobs-in-parallel.html#gsc.tab=0)):
 ```
 blastp -db path_to_nr -query global_blast_query.fa -out global_blast_results -evalue 0.001 -outfmt "6 qaccver saccver staxid" -num_threads 60 -qcov_hsp_perc 50
@@ -171,24 +173,28 @@ Applied filters:
 
 ## 5. Second-stage contaminant filtering (workflow step 8)
 1. Use the supplied Jupyter Notebook 3. "Contaminant screening and removal", section "Generating contaminant filtering blast query",  
-to select a random sample of proteins for a BLASTp agains the NR data base. 
+to select a random sample of proteins for a BLASTp agains the NR data base.  
 For each target protein, the notebook selects up to 10 proteins encoded on the same contig.   
-The notebook saves the selected BLASTp query in a directory called contaminant_filtering_blast, in the subdirectory contaminant_filtering_blast/sequences. 
-Note 1: In principle, this step can be done at any earlier stage, even at the beginning of the analysis.   
-However, it would be very computationally costly. Performing it at this stage, after an initial filtering of clusters, saves a lot of computational time.  
-Note 2: Selecting up to 10 proteins is quite arbitary, the more the better (but costlier).  
-2. Run a BLASTp of the contaminant filtering query against the NR data base. 
-Example BASH command with parallelized BLASTp (evoked in the contaminant_filtering_blast directory):
-mkdir blast
+The notebook saves the selected BLASTp query in a directory called `contaminant_filtering_blast`, in the subdirectory `contaminant_filtering_blast/sequences`.   
+*Note 1: In principle, this step can be done at any earlier stage, even at the beginning of the analysis.   
+However, it would be very computationally costly. Performing it at this stage, after an initial filtering of clusters, saves a lot of computational time.   
+Note 2: Selecting up to 10 proteins is quite arbitary, the more the better (but again, costlier).*    
+
+2. Run a BLASTp of the contaminant filtering query against the NR data base.  
+Example BASH command with parallelized BLASTp (evoked in the `contaminant_filtering_blast` directory):  
+```
+mkdir blast 
 parallel --jobs=20 blastp -db path_to_local_NR -query sequences/{1} -out blast/{1}.blast -outfmt \"6 qseqid sseqid pident length evalue staxid\" -num_threads 4 -word_size 6 -threshold 21 -evalue 1e-06 -max_target_seqs 100 ::: $(ls sequences)   
 cat blast/* > blast_results
-3. Use the supplied Jupyter Notebook 3. "Contaminant screening and removal", section "Detecting contaminants",  
+```
+*Note: the local NR data base needs to be constructed with TaxID information in order for the `staxid` keyword to work.*
+
+3. Use the supplied Jupyter Notebook 3. "Contaminant screening and removal", section "Detecting contaminants", 
 to parse the results of BLASTp from the previous step and to discard the target proteins for which we didn't detect any protein with a fungal first hit agains NR
-encoded in the same contig. These proteins are removed from clusters.
+encoded in the same contig. These proteins are removed from clusters.  
 Then, the notebook repeats filtering of clusters as in the previous step of the workflow.  
-This step is optional, but at this point we may get some clusters without target proteins, 
-   so their further processing is unneccessary and they can be discarded.  
-The notebook will then generate filtered cluster FASTAs and save them in a directory called first_round_filtered_clusters.     
+This step is optional, but at this point we may get some clusters without target proteins, so their further processing is unneccessary and they can be safely discarded.  
+The notebook will then generate filtered cluster FASTAs and save them in a directory called `first_round_filtered_clusters`.     
 
 
 ## TBC
