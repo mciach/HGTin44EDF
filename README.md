@@ -39,14 +39,14 @@ ncbi-seg all_proteins.fa 12 1.8 2.0 -x X > masked_proteins.fa
 giving less masking, so that we'll discard less proteins. This is optional, default parameters can also be used.*
 
 3. Remove heavily masked proteins, short/long proteins, remove atypical characters. 
-BASH command using a supplied Python script `standardize_proteins.py`:
+BASH command using a supplied Python3 script `standardize_proteins.py`:
 ```
 python3 standardize_proteins.py masked_proteins.fa standardized_proteins.fa
 ```
 *Note: The resulting file `standardized_proteins.fa` is now the main FASTA file that will be screened for HGT.*
 
 # Data processing 
-## 1. Discarding ancestrally fungal proteins and major contaminants (workflow steps 2 and 3):
+## P1. Discarding ancestrally fungal proteins and major contaminants (workflow steps 2 and 3):
 1. Create a custom BLASTp database `target_fungi` with target proteins.  
 BASH command using ncbi blast+:
 ```
@@ -68,10 +68,16 @@ Use the supplied Jupyter Notebook: "1. Discarding ancestral sequences and major 
 Implemented steps:  
     1. Select proteins with homology confined to a single fungal family (using the org2taxid.tsv table). 
     2. Discard proteins on contigs without any homology to any other fungal proteome.  
-    3. Save the selected proteins in FASTA format in the file `global_blast_query.fa.`
+    3. Save the selected protein accessions in `single_family_accessions.txt`
+
+4. Generate a FASTA file called `global_blast_query.fa.` with the sequences of proteins selected in the previous step.   
+BASH commands using the supplied Python3 script `generate_global_blast_query.py`:  
+```
+python generate_global_blast_query.py
+```
 
 
-## 2. Performing a BLASTp of the selected target proteins against the NR data base and filtering the results ("global BLASTp"; workflow step 4, 5)
+## P2. Performing a BLASTp of the selected target proteins against the NR data base and filtering the results ("global BLASTp"; workflow step 4, 5)
 1. Run a BLASTp of the global_blast_query.fa against a local copy of the NR data base.   
 Set a query cover filter so that we don't get spurious homologies caused by small highly conserved regions (this is very prevalent in these kinds of studies, because HGT is often associated with gene fusion).  
 Example command (it is recommended, however, to parallelize the computations, see e.g. [this link](https://bioinformaticsworkbook.org/dataAnalysis/blast/running-blast-jobs-in-parallel.html#gsc.tab=0)):
@@ -121,7 +127,7 @@ In our case, a 70% masking threshold (i.e. setting `low_complexity = aa_nbs/leng
 
 7. Generate a tsv file with protein sequence lengths called `sequence_length_table.txt`. The file needs to have two tab-separated columns, with protein accession in the first one and protein sequence length in second one. Easy to do manually e.g. using `Biopython`, so no script or command is supplied here.  
 
-## 3. Clustering sequences - fist stage (workflow step 6)
+## P3. Clustering sequences - fist stage (workflow step 6)
 1. Create a BLASTp database from `standardized_final_sequences.fa` for all-vs-all BLASTp.  
 BASH commands:  
 ```
@@ -146,7 +152,7 @@ BASH command using a supplied Python script `filter_blast_results.py`:
 python filter_blast_results.py
 ```
 *Note: `filter_blast_results.py` reads results from clustering_blast_results and generates two files: `query_filtered_clustering_blast_results` and `twoway_filtered_clustering_blast_results`, for two filtering strategies. The file `twoway_filtered_clustering_blast_results` is the one with full filtering, used in subsequent steps; `query_filtered_clustering_blast_results` can be discarded or used to compare the results.*   
-*Note 2: `filter_blast_results.py` uses data from the `sequence_length_table.txt` file created in step 2.7.*
+*Note 2: `filter_blast_results.py` uses data from the `sequence_length_table.txt` file created in step P2.7.*
 
 4. Cluster the file `twoway_filtered_clustering_blast_results` with MCL, inflation parameter = 1.7.   
 Instructions available at https://micans.org/mcl/.  
@@ -157,10 +163,10 @@ numbers of detected HGTs and different numbers of false positive results.
 *Note 2: It is highly recommended to inspect the results manually after this step, e.g. by selecting random clusters and comparing with online BLASTp search to see if the homologous proteins are within the sequence cluster, and whether there are spurious sequences in the cluster.*  
 
 
-## 4. Cluster processing and filtering (workflow step 7)
+## P4. Cluster processing and filtering (workflow step 7)
 1. Use the Jupyter Notebook 2. "Selecting raw clusters (all stages)" to process clusters from the file `out.mcl_twoway_filter.mci.I17`.  
 The notebook will save the FASTA files with sequences from each cluster in the directory `first_round_clusters`.  
-*Note: The notebook can be used to filter clusters in this step as well as after re-clustering (pipeline step 6, workflow step 8) by modifying the value of the variable `cluster_file` in the notebook.*  
+*Note: The notebook can be used to filter clusters in this step as well as after re-clustering (pipeline step P6, workflow step 8) by modifying the value of the variable `cluster_file` in the notebook.*  
 Applied filters:
     1. Discard clusters without any target protein.
     2. Discard clusters with fungal proteins from more than one taxonomic fungal phylum.
@@ -174,7 +180,7 @@ Applied filters:
 
 
 
-## 5. Second-stage contaminant filtering (workflow step 8)
+## P5. Second-stage contaminant filtering (workflow step 8)
 1. Use the supplied Jupyter Notebook 3. "Contaminant screening and removal", section "Generating contaminant filtering blast query",  
 to select a random sample of proteins for a BLASTp agains the NR data base.  
 For each target protein, the notebook selects up to 10 proteins encoded on the same contig.   
@@ -200,26 +206,26 @@ This step is optional, but at this point we may get some clusters without target
 The notebook will then generate filtered cluster FASTAs and save them in a directory called `first_round_filtered_clusters`.     
 
 
-## 6. Re-clustering the sequences (workflow step 8)
+## P6. Re-clustering the sequences (workflow step 8)
 *Note: This step is performed because in the previous two steps we have removed a lot of sequences.  
 Removing sequences changes the structure of the homology graph used by MCL, and can result in major changes 
 of the cluster structure - mostly by splitting clusters that were joined by a single protein.  
 This step improves the quality of the final results, but is not essential - skipping it is unlikely to introduce major flaws in the analysis.
 It's a quantitative, rather than a qualitative, improvement.    
 From our experiments, re-clustering increses the final number of detected well-supported HGTs by approximately 10%.*  
-1. Concatenate the FASTA files of contaminant-filtered clusters resulting from step 5.3.   
+1. Concatenate the FASTA files of contaminant-filtered clusters resulting from step P5.3.   
 BASH command:  
 ```
 cat first_round_filtered_clusters/*.fa > out.mcl_twoway_filter.mci.I17.second_stage.fa
 ```
 
-2. Cluster the concatenated FASTA in `out.mcl_twoway_filter.mci.I17.second_stage.fa` according to step 3.  
+2. Cluster the concatenated FASTA in `out.mcl_twoway_filter.mci.I17.second_stage.fa` according to step P3.  
 Save the MCL results in a file `out.mcl_twoway_filter.mci.I17.stage2.mcl`.  
 3. Use the Jupyter Notebook 2. "Selecting raw clusters (all stages)" again to process the clusters.  
 In the notebook, modify the value of the variable `cluster_file` in the notebook to `out.mcl_twoway_filter.mci.I17.stage2.mcl` and the value of the variable `output_dirname` to `second_round_clusters`.   
 *Note: at this step you shouldn't observe much change after the filtering, but you'll probably detect some new ORFans, so it's useless to keep them.*
 
-## 7. First round alignment (workflow step 9)
+## P7. First round alignment (workflow step 9)
 1. Align each cluster FASTA file from `second_round_clusters` using  mafft, E-INS-i strategy with maximum 5000 iterations.  
 BASH command using [GNU Parallel](https://www.gnu.org/software/parallel/), evoked in `second_round_clusters`:  
 ```
@@ -237,6 +243,7 @@ mv second_round_clusters/*.aln second_round_raw_alignments
 ```
 
 3. Use the Jupyter Notebook 4. "Alignment processing" to process the alignments.   
+The notebook requires functions from the supplied file `hgt_algorithms.py`, which needs to be placed in the same directory as the notebook.  
 The applied filters are very simple, so the filtering is very basic and retains more information than e.g. TrimAL, which tends to cut out more columns (at least from our experience):
     1. Remove constant columns (in order to speed up computations).     
     This step also removes columns which have only a single type of amino acid and some gaps (i.e. gaps are ignored when deciding whether a column is constant).      
@@ -252,7 +259,7 @@ We may remove some leaves that agree with the cluster on some very conserved reg
 (i.e. they have high substitution numbers in less-conserved regions). This doesn't hurt us either, because it's not a common phenomenon, and we can afford to lose some leaves if our trees are otherwise well computed.* 
 
 
-## 8. First round tree inference and outlier detection (workflow steps 10, 11)
+## P8. First round tree inference and outlier detection (workflow steps 10, 11)
 1. Use the FASTAs in `second_round_processed_alignments` to calculate the ML trees using [IQtree](http://www.iqtree.org/).  
 Move the results to `second_round_raw_trees` directory.  
 BASH commands evoked in `second_round_processed_alignments`:
@@ -264,6 +271,7 @@ mv *.aln.* ./first_round_raw_trees
 Depending on your needs, you may also want to use the SH-aLRT test as described at IQtree's web page.*  
 
 2. Use the Jupyter Notebook "5.Tree processing - detection of long branches" to process the trees.   
+The notebook requires functions from the supplied file `hgt_algorithms.py`, which needs to be placed in the same directory as the notebook.  
 The notebook will select a local neighbourhood of fungi in each tree by removing leaves which are further than 3.33 sps (measured in sum of branch lengths; 3.33 sps corresponds to ~15% sequence identity) from any fungus.   
 This is because we're only interested in the branching patterns of fungal clades, and other leaves simply confound our trees (the larger the tree, the more errors it contains).  
 Next, the notebook will cut the trees along long branches (we've used branch length threshold of 1.328 sps, corresponding on average to 35% identity). This is because long branches can cause topological errors due to long branch attraction etc. In general, a long branch means that the two subtres contain loosely related sequences, so the tree is less reliable (there may be an insufficient phylogenetic signal to accurately reconstruct the tree, so it's more likely to be incorrect).   
@@ -273,14 +281,14 @@ Finally, the resulting trees are saved in `second_round_processed_trees`, and th
 *Note 2: It's worth checking the results at this stage manually, inspecting the threes before and after the filtering, checking their biological plausibility, and comparing them to an independent online BLASTp search as well as species trees to check if they agree (they won't agree 100%, obviously, but should agree for the most part; we generally want to obtain gene trees that have some minor differences to the corresponding species trees. Those differences correspond e.g. to HGTs; however, gene trees evolve mostly vertically, so should agree with the species trees except for a few branches). Inspecting the results here will help you adjust the parameters (and the pipeline in general) to your needs.*   
 
 
-## 9. Re-clustering the sequences (not a part of the final workflow).
-This is fully optional, and we didn't do it in the final version because it had very little influence on the results.   
+## (optional) P9. Re-clustering the sequences (not a part of the final workflow).
+This step is fully optional, and we didn't do it in the final version because it had very little influence on the results.   
 However, to be formally correct, you may want to perform the clustering again if the previous steps resulted in removing of some sequences.  
 Generally removing any sequence can alter the clustering structure (because it changes the structure of the homology graph), but if it's only a few sequences, the changes are typically negligible.   
-In our case we got almost the same clusters as in step 6 (you can test it by simply comparing the Jaccard score between matching clusters), so it wasn't worth it to repeat the whole procedure again.   
+In our case we got almost the same clusters as in step P6 (you can test it by simply comparing the Jaccard score between matching clusters), so it wasn't worth it to repeat the whole procedure again.   
 
-## 10. Recomputing trees (workflow step 11)
-As opposed to step 9, this step is necessary, because in step 8 we've changed the FASTAs from which the trees are computed.  
+## P10. Recomputing trees (workflow step 11)
+As opposed to step P9, this step is necessary, because in step P8 we've changed the FASTAs from which the trees are computed.  
 This, in general, will result in different ML trees, and almost always in different branch lengths.   
 This also applies to any other tree filtering procedures, such as removing rogue taxa - you typically can't simply remove branches from ML trees, you need to recompute them afterwards to adjust their topologies and branch lengths.  
 1. Align the FASTAs from `third_round_clusters` and move the alignments to `third_round_raw_alignments`.  
@@ -290,16 +298,16 @@ parallel --jobs 20 "mafft --thread 5 --genafpair --maxiterate 5000 {1} > {1}.aln
 mv *.aln ../third_round_raw_alignments
 ```
 
-2. Process the alignments (optional, but generally worth it, because it may improve the tree topologies by discarding spurious columns, as well as the computational time by discarding constant columns).  
+2. Process the alignments (optional, but it's generally worth it to sligtly trim alignments, because it may improve the tree topologies by discarding spurious columns, as well as the computational time by discarding constant columns).  
 Use the Jupyter Notebook 4. "Alignment processing", adjusting the necessary input and output variables.   
 Save the results in `third_round_processed_alignments`.   
 3. Infer the ML trees and move them to `third_round_trees`.   
 BASH commands evoked in `third_round_processed_alignments`: 
 ```
 parallel --jobs=20 "~/Tools/iqtree-1.6.12-Linux/bin/iqtree -st AA -s {1} -nt AUTO -ntmax 20 -bb 2000 -wbt" ::: *.aln  
-mv *.aln.* ../third_round_processed_alignments
+mv *.aln.* ../third_round_trees
 ```
-*Note: these are our final trees.*  
+*Note: the directory `third_round_trees` now contains our final trees that we'll use for subsequent HGT screening.*  
 
 4. If you want a table of best-fitting substitution models for each tree, you can extract it from IQtree logs as follows:
 ```
@@ -308,4 +316,67 @@ sed -i 's/Model\ of\ substitution\:\ //' substitution_models.txt
 sed -i 's/\.iqtree//' substitution_models.txt
 ```
 
+## P11. HGT detection (workflow steps 12, 13, 14)
+1. Use the supplied Jupyter Notebook 5. "HGT classification.ipynb" to check the trees for HGTs.  
+The notebook requires functions from the supplied file `hgt_algorithms.py`, which needs to be placed in the same directory as the notebook.  
+The notebook will partition the trees into three classes: putative homoplasy, with topology suggesting vertical evolution; unsupported hgts, with incongruent fungal clades but failing to pass other requirements; supported hgts, with incongruent fungal clades, sufficient branch support, and containing a branch somewhere in the tree that corresponds to vertical evolution (if no such branch exists in the whole gene tree then it's impossible to tell if this is an actual hgt or just a gene tree inference error).  
+The trees from the three classes are saved in subdirectories of a directory called `Results`.   
+The results are summarized in `Results/hgt_results.tsv`, along with HGT criterion and additional data.  
+*Note: The HGT results contain a column with all fungal proteins in a tree - this may include sets of identical proteins from previous or new releases of the target proteomes.*  
+
+
+
+# Downstream analysis
+## D1. Feature mining in proteins. 
+1. Generate a FASTA file with sequences of the whole protein families containing target xenologs, called `all_hgt_sequences.fa`. 
+BASH command using a supplied Python3 script:   
+```
+python generate_fasta_files.py
+``` 
+*Note: The set of sequences in `all_hgt_sequences.fa` is not disjoint with the file `all_proteins.fa`, because obviously the xenologous target sequences are in their proteomes as well. However, protein families contain xenologs in closely related organisms to the target ones (e.g. in our case, early branching fungi other than the 44 species that we were studying). These xenologs are withing the same subtrees as the target species and need to be analyzed jointly. So, `all_hgt_sequences.fa` is not a subset of `all_proteins.fa`, but has some common sequences. Because of the latter, the next steps can be done smarter, without computing the same information multiple times for the same proteins.*
+
+2. Detect PFAM domains in `all_proteins.fa` and `all_hgt_sequences.fa`.   
+BASH commands:
+```
+[path_to_pfam_scan.pl] -fasta all_proteins.fa -dir [path_to_pfam] -outfile all_proteins.pfamout -cpu 30 -e_seq 0.01 -e_dom 0.01
+[path_to_pfam_scan.pl] -fasta all_hgt_sequences.fa -dir [path_to_pfam] -outfile all_hgt_sequences.pfamout -cpu 30 -e_seq 0.01 -e_dom 0.01
+```
+*Note: this requires installation and configuration of PfamScan on your machine first.*  
+*Note2: local PfamScan may give different results than the online version, so don't be surprised.*
+
+3. Detect signal peptides in `all_proteins.fa` with SignalP.
+BASH commands:  
+```
+signalp -fasta ~/Grzyby/domeny/all_proteins.fa
+```
+*Note: you may need to evoke this command in the `/bin` subdirectory of SignalP.*  
+*Note 2: in our study we didn't scan `all_hgt_sequences.fa `, because we weren't interested in signal peptides of the donors. 
+The `all_proteins.fa` file contains the xenologs as well, so we just used the data in `hgt_results.tsv` to select them.*   
+
+4. Predict protein localization for target proteins using wolfpsortII.  
+BASH commands with an example path (assuming WolfPSort is installed in `/home/tools/`):
+```
+/home/tools/WoLFPSort/bin/runWolfPsortSummary fungi < all_proteins.fa > all_proteins.wolfpsort
+```
+
+5. Calculate the amounts of low-complexity regions.   
+BASH command with an example path, using the supplied Python script `get_mask_data.py` to convert masked FASTAs to a simpler table:  
+```
+home/tools/ncbi-blast-2.10.0+/bin/segmasker -in all_proteins.fa -out all_proteins_segmask.fa -outfmt fasta 
+python3 get_mask_data.py all_proteins_segmask.fa all_proteins_mask_data.txt
+```
+*Note: don't set the flag `-x X` in segmasker if you're using `get_mask_data.py`, or modify the script to handle X's.*
+
+6. Predict the metabolic pathways using kofamscan.  
+BASH command with example paths (assuming kofam_scan is installed in `/home/tools`):  
+```
+/home/tools/kofam_scan/exec_annotation --cpu 30 -o all_proteins.keggmap -f mapper -p /home/tools/kofam_scan/profiles -k /home/tools/kofam_scan/ko_list all_proteins.fa  
+/home/tools/kofam_scan/exec_annotation --cpu 30 -o all_hgt_sequences.keggmap -f mapper -p /home/tools/kofam_scan/profiles -k /home/tools/kofam_scan/ko_list all_hgt_sequences.fa
+```
+
+7. Calculate the numbers of introns in target proteins using GFF information.   
+BASH commands using a supplied Python3 script (assumes that the GFF files are stored in a directory `GFFs/`):  
+```
+python generate_intron_data.py
+```
 
