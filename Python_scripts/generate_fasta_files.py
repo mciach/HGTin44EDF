@@ -11,7 +11,7 @@ ncbi = NCBITaxa()
 # inputy:
 results_dir = Path('Results')
 
-transferred_clusters = results_dir / 'hgt_results.tsv'
+transferred_clusters = 'hgt_results.tsv'
 tree_directory = 'third_round_trees/'
 blasted_proteins = 'standardized_final_sequences.fa'
 blasted_taxid_table = 'final_homolog_taxid_table'
