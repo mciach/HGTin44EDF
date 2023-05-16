@@ -9,7 +9,6 @@ from path import Path
 ncbi = NCBITaxa()
 
 # inputy:
-results_dir = Path('Results')
 
 transferred_clusters = 'hgt_results.tsv'
 tree_directory = 'third_round_trees/'
@@ -17,8 +16,8 @@ blasted_proteins = 'standardized_final_sequences.fa'
 blasted_taxid_table = 'final_homolog_taxid_table'
 
 # outputy:
-result_all = results_dir / 'all_hgt_sequences.fa'
-##result_fungi = results_dir / 'fungal_hgt_sequences.fa'
+result_all =  'all_hgt_sequences.fa'
+##result_fungi = 'fungal_hgt_sequences.fa'
 
 # processing
 fungi_taxid = '4751'
