@@ -272,9 +272,9 @@ Depending on your needs, you may also want to use the SH-aLRT test as described 
 
 2. Use the Jupyter Notebook "5.Tree processing - detection of long branches" to process the trees.   
 The notebook requires functions from the supplied file `hgt_algorithms.py`, which needs to be placed in the same directory as the notebook.  
-The notebook will select a local neighbourhood of fungi in each tree by removing leaves which are further than 3.33 sps (measured in sum of branch lengths; 3.33 sps corresponds to ~15% sequence identity) from any fungus.   
+The notebook will select a local neighbourhood of fungi in each tree by removing leaves which are further than 3.33 sps (*substitutions per site*; distance between leaves measured in sum of branch lengths between them; 3.33 sps corresponds to ~15% sequence identity) from any fungus.   
 This is because we're only interested in the branching patterns of fungal clades, and other leaves simply confound our trees (the larger the tree, the more errors it contains).  
-Next, the notebook will cut the trees along long branches (we've used branch length threshold of 1.328 sps, corresponding on average to 35% identity). This is because long branches can cause topological errors due to long branch attraction etc. In general, a long branch means that the two subtres contain loosely related sequences, so the tree is less reliable (there may be an insufficient phylogenetic signal to accurately reconstruct the tree, so it's more likely to be incorrect).   
+Next, the notebook will cut the trees along long branches (we've used branch length threshold of 1.598 sps, corresponding on average to 30% identity). This is because long branches can cause topological errors due to long branch attraction etc. In general, a long branch means that the two subtres contain loosely related sequences, so the tree is less reliable (there may be an insufficient phylogenetic signal to accurately reconstruct the tree, so it's more likely to be incorrect).   
 Next, trees are filtered similarly to clusters - trees without target proteins are discarded etc.   
 Finally, the resulting trees are saved in `second_round_processed_trees`, and the corresponding FASTAs in `third_round_clusters`.  
 *Note: you may also want to use RogueNaRok here to remove rogue taxa (i.e. sequences with an unreliable placement on the tree). In our case that caused more harm than good - it removed several obvious HGTs, but otherwise didn't have much influence on the results. This is because our data set was already thoroughly filtered at this point, so additional filters tended to discard a lot of true positives. Because of this, we skipped RogueNaRok, but in your case it might be different, so it may be worth checking.*   
@@ -323,7 +323,7 @@ The notebook will partition the trees into three classes: putative homoplasy, wi
 The trees from the three classes are saved in subdirectories of a directory called `Results`.   
 The results are summarized in `Results/hgt_results.tsv`, along with HGT criterion and additional data.  
 *Note: The HGT results contain a column with all fungal proteins in a tree - this may include sets of identical proteins from previous or new releases of the target proteomes.*  
-
+    
 
 
 # Downstream analysis
