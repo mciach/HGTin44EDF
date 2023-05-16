@@ -320,9 +320,10 @@ sed -i 's/\.iqtree//' substitution_models.txt
 1. Use the supplied Jupyter Notebook 5. "HGT classification.ipynb" to check the trees for HGTs.  
 The notebook requires functions from the supplied file `hgt_algorithms.py`, which needs to be placed in the same directory as the notebook.  
 The notebook will partition the trees into three classes: putative homoplasy, with topology suggesting vertical evolution; unsupported hgts, with incongruent fungal clades but failing to pass other requirements; supported hgts, with incongruent fungal clades, sufficient branch support, and containing a branch somewhere in the tree that corresponds to vertical evolution (if no such branch exists in the whole gene tree then it's impossible to tell if this is an actual hgt or just a gene tree inference error).  
-The trees from the three classes are saved in subdirectories of a directory called `Results`.   
-The results are summarized in `Results/hgt_results.tsv`, along with HGT criterion and additional data.  
-*Note: The HGT results contain a column with all fungal proteins in a tree - this may include sets of identical proteins from previous or new releases of the target proteomes.*  
+The trees from the three classes are re-labeled with scientific names of their species and saved in subdirectories of a directory called `final_processed_trees`. There are three subdirectories that correspond to the three tree classes.    
+The results are summarized in `hgt_results.tsv`, along with HGT criterion and additional data.   
+Finally, the notebook will select a random subset of 10 trees for a manual verification. The names of selected tree files are saved in a file `cluster_list_for_manual_verification.txt`. It is recommended to inspect the trees manually and compare them to the corresponding species trees and an independent online BLASTp result to verify if they are computed correctly. It is also recommended to take another look at the intermediate data steps for the trees from `cluster_list_for_manual_verification.txt`, including the clusters and alignments.   
+*Note: The `hgt_results.tsv` file contains a column with all fungal proteins in a tree - this may include sets of identical proteins from previous or new releases of the target proteomes.*  
     
 
 
